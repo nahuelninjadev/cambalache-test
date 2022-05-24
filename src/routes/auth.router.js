@@ -6,21 +6,26 @@ const pool = require('../db');
 const tokenValidator = require('../middleware/tokenValidator');
 const { createClient } = require('redis');
 
-const client = createClient({
-  url: process.env.REDIS_URL
-})
-client.on("connect", (err) => {
-  console.log("Client connected to Redis...");
-});
-client.on("ready", (err) => {
-  console.log("Redis ready to use");
-});
-client.on("error", (err) => {
-  console.error("Redis Client", err);
-});
-client.on("end", () => {
-  console.log("Redis disconnected successfully");
-});
+const getRedisClient = async () => {
+  const client = createClient({
+    url: process.env.REDIS_URL
+  })
+  client.on("connect", (err) => {
+    console.log("Client connected to Redis...");
+  });
+  client.on("ready", (err) => {
+    console.log("Redis ready to use");
+  });
+  client.on("error", (err) => {
+    console.error("Redis Client", err);
+  });
+  client.on("end", () => {
+    console.log("Redis disconnected successfully");
+  });
+
+  await client.connect();
+  return client;
+}
 
 router.post('/login', async (req, res) => {
   const { email, password } = req.body;
@@ -74,10 +79,10 @@ router.post('/logout', tokenValidator, async (req, res) => {
     `, [usuario_id]);
 
   const token_key = `bl_${token}`;
-  await client.connect();
+  const client = await getRedisClient();
   await client.set(token_key, token);
   client.expireAt(token_key, tokenExp);
-  client.disconnect();
+  
 
   res.status(200).end();
   } catch (error) {
